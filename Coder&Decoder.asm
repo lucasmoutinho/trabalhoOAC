@@ -5,8 +5,11 @@
 	strIntro: .asciiz "Bem vindo ao Programa Codificador & Decodificador MIPS\n"
 	strSeparador: .asciiz "***************************************************\n"
 	strExit: .asciiz "Obrigado por usar o programa....\n\n FINALIZANDO...\n"
-	strMenu: .asciiz "Escreva o nome do arquivo...\nArquivos à serem codificados devem possuir a extensão .txt\nArquivos a serem decodificados devem possuir a extensão .lzw\n\n"
-	strError: .asciiz "Erro ao abrir o arquivo/Arquivo inexistente...\n\nVOLTANDO AO MENU\n\n"
+	strSubmenu: .asciiz "Escreva o nome do arquivo...\nArquivos à serem codificados devem possuir a extensão .txt\nArquivos a serem decodificados devem possuir a extensão .lzw\n\n"
+	strError: .asciiz "Erro ao abrir o arquivo\nArquivo inexistente ou com a extensão incorreta...\n\nVOLTANDO AO MENU\n\n"
+	strMenu: .asciiz "Selecione uma das opções:\n0 - Codificar e/ou Decodificar um arquivo\n1 - Sair do sistema\n"
+	strErroOpcao: .asciiz "Opcao invalida...\n\nTente Novamente\n\n"
+	
 	
 	#nome do arquivo de input com no maximo 20 caracteres
 	nomeArquivo: .space 20 
@@ -16,11 +19,7 @@
 .text
 main:	
 	# Strings para a abertura do Sistema via terminal MIPS
-	la $a0, quebraDeLinha
 	li $v0, 4
-	syscall
-	la $a0, strSeparador
-	syscall
 	la $a0, strIntro
 	syscall
 	la $a0, strSeparador
@@ -28,23 +27,48 @@ main:
 	la $a0, quebraDeLinha
 	syscall
 	
-menu:	
-	# Menu de operação
-	la $a0, strMenu # String de explicação sobre os inputs de nomes de arquivos
+menu:
+	# Strings para a abertura do Sistema via terminal MIPS
+	la $a0, quebraDeLinha
 	li $v0, 4
 	syscall
+	la $a0, strSeparador
+	syscall
+	la $a0, strMenu
+	syscall
+	la $a0, strSeparador
+	syscall
+	la $a0, quebraDeLinha
+	syscall
+	li $v0, 5
+	syscall
+	move $t2, $v0
+	li $t0, 0 # opcao 0
+	li $t1, 1 # opcao 1
+	beq $t0, $t2, submenu
+	beq $t1, $t2, exit
+	la $a0, strErroOpcao # opcao invalida
+	li $v0, 4
+	syscall
+	j menu
+	
+submenu:	
+	# Menu de operação para o codificador e decodificador
+	la $a0, strSubmenu # String de explicação sobre os inputs de nomes de arquivos
+	li $v0, 4
+	syscall
+	
+	la $s6, nomeArquivo # $s6 armazenará o address do nome do arquivo
+	
 	li $v0, 8 # Input do nome do arquivo a ser aberto
-	la $a0, nomeArquivo # Buffer que conterá nome do arquivo
+	move $a0, $s6 # Buffer que conterá nome do arquivo
 	li $a1, 20 # Máximo de 20 caracteres
 	syscall
-	add $s6, $a0, $0 # $s6 armazenará o address do nome do arquivo
-	add $t0, $s6, $0 # $s6 movido para $t0 para percorrer a string caractere por caractere
 	
-loopChar:
-	# Procura o ultimo caractere da string
-	addi $t0, $t0, 1
-	lb $t1, ($t0)
-	bne $t1, $0, loopChar 
+	move $t0, $s6 # $s6 movido para $t0 para percorrer a string caractere por caractere
+	
+	jal stringEnd
+	move $t0, $a0 # recebe o null byte da string
 	
 	# Retira byte de newline (10 em decimal) se este existir
 	addi $t0, $t0, -1
@@ -61,9 +85,58 @@ openFile:
 	add $a2, $0, $0 # mode ignorado
 	syscall
 	move $s7, $v0 # File Descriptor salvo em $s7
-	bltz $s7, readError
+	bltz $s7, readError # File Descriptor negativo, erro ao tentar abrir o arquivo
+	li $t1, 5 # Arquivos tem de ter no minimo 5 caracteres. Exemplo: T.txt
+	jal stringLength
+	move $t0, $a0
+	slt $t1, $t0, $t1
+	bne $t1, $0, readError # Retorna erro, pois o tamanho da string é menor do que 4, ou seja, numero de caracteres insuficientes no nome do arquivo
+	
+extensionTXT:
+	# Série de testes para avaliar a extensão do arquivo
+	jal stringEnd
+	move $t0, $a0 # recebe o null byte da string
+	addi $t0, $t0, -4 # volta no quarto caractere antes do fim da string
+	li $t1, 46 # caractere .
+	lb $t2, ($t0)
+	bne $t2, $t1, readError # Quarto caractere antes do fim é diferente de ponto.
+	addi $t0, $t0, 1
+	li $t1, 116 # caractere t
+	lb $t2, ($t0)
+	bne $t2, $t1, extensionLZW # Volta para avaliar se a extensão é lzw
+	addi $t0, $t0, 1
+	li $t1, 120 # caractere x
+	lb $t2, ($t0)
+	bne $t2, $t1, readError # Extensão incorreta
+	addi $t0, $t0, 1
+	li $t1, 116 # caractere t
+	lb $t2, ($t0)
+	bne $t2, $t1, readError # Extensão incorreta
+	j codificador # Arquivo deve ser codificado
+	
+extensionLZW:
+	# Série de testes para avaliar a extensão do arquivo
+	jal stringEnd
+	move $t0, $a0 # recebe o null byte da string
+	addi $t0, $t0, -3 # volta no terceiro caractere antes do fim da string
+	li $t1, 108 # caractere l
+	lb $t2, ($t0)
+	bne $t2, $t1, readError # Extensão incorreta
+	addi $t0, $t0, 1
+	li $t1, 122 # caractere z
+	lb $t2, ($t0)
+	bne $t2, $t1, readError # Extensão incorreta
+	addi $t0, $t0, 1
+	li $t1, 119 # caractere w
+	lb $t2, ($t0)
+	bne $t2, $t1, readError # Extensão incorreta
+	j decodificador # Arquivo deve ser decodificado
+
+codificador:
 	j exit
 	
+decodificador:
+	j menu	
 	
 readError:
 	# Strings para inidcação de erro na tentativa de abrir o arquivo
@@ -73,15 +146,39 @@ readError:
 	la $a0, strError
 	syscall
 	move $t0, $s6
-	li $t1, 5 # contador do loop
+	li $t1, 20 # contador do loop
 	
 loopError:
-	# Apaga conteudo do buffer
-	sw $0, ($t0)
-	addi $t0, $t0, 4
+	# Apaga conteudo do buffer byte a byte
+	sb $zero, ($t0)
+	addi $t0, $t0, 1
 	addi $t1, $t1, -1
 	bgtz $t1, loopError
 	j menu
+
+stringEnd:
+	move $t0, $s6
+loopEnd:
+	# Procura o ultimo caractere da string e o retorna
+	addi $t0, $t0, 1
+	lb $t1, ($t0)
+	bne $t1, $0, loopEnd
+	move $a0, $t0
+	jr $ra
+	
+stringLength:
+	# Retorna o tamanho da string
+	move $t0, $s6
+	add $t2, $0, $0
+loopLength:
+	lb $t1, ($t0)
+	beq $t1, $0, endLength
+	addi $t2, $t2, 1
+	addi $t0, $t0, 1
+	j loopLength
+endLength:
+	move $a0, $t2
+	jr $ra
 
 exit:
 	# Strings para finalização do sistema via terminal MIPS
