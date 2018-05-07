@@ -29,10 +29,10 @@
 	nomeDic: .asciiz "Dicionario.txt" # Nome do arquivo de output do dicionario gerado na codificação
 	
 	# Espaço da memoria para armazenar o dicionario
-	dicionario: .word 0:640000 # cria um dicionario com 5000 linhas, cada uma com 128 words
+	dicionario: .word 0:640000 # cria um dicionario com 20000 linhas, cada uma com 32 words, ou seja 128 caracteres
 	
 	# Buffers de leitura para sequencia de caracteres
-	buffer: .word 0:128 # Buffer intermediario
+	buffer: .word 0:32 # Buffer intermediario
 	outputBuffer: .space 10 # Buffer de saida
 	
 .globl main
@@ -207,12 +207,12 @@ endLoopC3:
 	
 	beq $t2, $0, elseC2 # se a flag for 0
 	add $t1, $t7, $0
-	addi $t0, $t0, 512
+	addi $t0, $t0, 128
 	addi $t7, $t7, 1
 	j endLoopC2
 	
 elseC2:
-	addi $t0, $t0, 512
+	addi $t0, $t0, 128
 	addi $t7, $t7, 1
 	j loopC2
 
@@ -378,12 +378,12 @@ superendLoopC3:
 	
 	beq $t2, $0, superelseC2 # se a flag for 0
 	add $t1, $t7, $0
-	addi $t0, $t0, 512
+	addi $t0, $t0, 128
 	addi $t7, $t7, 1
 	j superendLoopC2
 	
 superelseC2:
-	addi $t0, $t0, 512
+	addi $t0, $t0, 128
 	addi $t7, $t7, 1
 	j superloopC2
 superendLoopC2:
@@ -512,7 +512,7 @@ imendLoopC3:
 	bltz $v0, readError
 	sb $0, ($t8)
 
-	addi $t0, $t0, 512
+	addi $t0, $t0, 128
 	addi $t7, $t7, 1
 	j imloopC2
 imendLoopC2:
@@ -628,7 +628,7 @@ SearchDic:
 whileMult:
 	# acha o endereço correto do indice i
 	beq $t7, $0, endSearchDic
-	addi $t0, $t0, 512
+	addi $t0, $t0, 128
 	addi $t7, $t7, -1
 	j whileMult
 
@@ -675,7 +675,7 @@ endWhileWriteDic:
 	sb $t9, ($t6)
 	addi $t6, $t6, 1
 	
-	addi $t2, $t2, 512 # ultima linha do dic
+	addi $t2, $t2, 128 # ultima linha do dic
 	
 	move $t5, $s0 # buffer intermediario
 	
